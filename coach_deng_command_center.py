@@ -4,17 +4,12 @@ import google.generativeai as genai
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Coach Deng Command Center", page_icon="🏀", layout="wide")
 
-# --- 🔐 API KEY SETUP (AUTO-LOGIN) ---
-# OPTION 1: Paste your key inside the quotes below to auto-login everyone.
-# Example: MANUAL_API_KEY = "AIzaSyD5..."
-MANUAL_API_KEY = ""
-
-if MANUAL_API_KEY:
-    api_key = MANUAL_API_KEY
-elif "GOOGLE_API_KEY" in st.secrets:
+# --- API KEY SETUP (SECURE) ---
+# This checks for the key in Streamlit Secrets (hidden) or asks in the sidebar.
+if "GOOGLE_API_KEY" in st.secrets:
     api_key = st.secrets["GOOGLE_API_KEY"]
 else:
-    api_key = st.sidebar.text_input("AIzaSyDGY2NAIrd24n_i-yBp0wF9LU7_gVtprAA", type="password")
+    api_key = st.sidebar.text_input("Enter Google API Key", type="password")
 
 # --- MODEL SETUP (Universal Adapter v2) ---
 model = None
