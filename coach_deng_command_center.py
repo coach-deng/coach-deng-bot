@@ -10,23 +10,35 @@ if "GOOGLE_API_KEY" in st.secrets:
 else:
     api_key = st.sidebar.text_input("Enter Google API Key", type="password")
 
-# --- MODEL SETUP (Universal Adapter) ---
+# --- MODEL SETUP (Universal Adapter v2) ---
 model = None
 if api_key:
     try:
         genai.configure(api_key=api_key)
-        # Check available models
+        
+        # 1. Get list of ALL models your key can see
         try:
-            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         except:
-            available_models = []
-        
-        # Pick best model
-        if "models/gemini-1.5-flash" in available_models: model_name = "models/gemini-1.5-flash"
-        elif "models/gemini-pro" in available_models: model_name = "models/gemini-pro"
-        else: model_name = "gemini-pro" # Fallback
-        
+            all_models = []
+
+        # 2. Smart Selection (Prioritize Flash, then Pro, then Anything)
+        if "models/gemini-1.5-flash" in all_models:
+            model_name = "models/gemini-1.5-flash"
+        elif "models/gemini-1.5-pro" in all_models:
+            model_name = "models/gemini-1.5-pro"
+        elif "models/gemini-1.0-pro" in all_models:
+            model_name = "models/gemini-1.0-pro"
+        elif all_models:
+            model_name = all_models[0] # Just take the first one that works
+        else:
+            model_name = "gemini-1.5-flash" # Blind fallback
+
         model = genai.GenerativeModel(model_name)
+        
+        # Show connection status in sidebar (for debugging)
+        st.sidebar.success(f"Connected: {model_name}")
+        
     except Exception as e:
         st.sidebar.error(f"API Connection Error: {e}")
 
@@ -100,7 +112,6 @@ elif app_mode == "🧠 Curriculum Builder":
                     st.markdown(response.text)
             except Exception as e:
                 st.error(f"Error generating plan: {e}")
-                st.info("Try refreshing the page or checking your API Key.")
         else:
             st.warning("Please check API Key.")
 
