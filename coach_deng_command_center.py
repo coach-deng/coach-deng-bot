@@ -4,8 +4,14 @@ import google.generativeai as genai
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Coach Deng Command Center", page_icon="🏀", layout="wide")
 
-# --- API KEY SETUP ---
-if "GOOGLE_API_KEY" in st.secrets:
+# --- 🔐 API KEY SETUP (AUTO-LOGIN) ---
+# OPTION 1: Paste your key inside the quotes below to auto-login everyone.
+# Example: MANUAL_API_KEY = "AIzaSyD5..."
+MANUAL_API_KEY = ""
+
+if MANUAL_API_KEY:
+    api_key = MANUAL_API_KEY
+elif "GOOGLE_API_KEY" in st.secrets:
     api_key = st.secrets["GOOGLE_API_KEY"]
 else:
     api_key = st.sidebar.text_input("Enter Google API Key", type="password")
