@@ -3,83 +3,68 @@ import google.generativeai as genai
 import os
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(
-    page_title="Coach Deng | Outreach Agent",
-    page_icon="🏀",
-    layout="centered"
-)
+st.set_page_config(page_title="Coach Deng Bot", page_icon="🏀")
 
-# --- HEADER & STYLE ---
 st.title("🏀 Corporate Athlete Sales Bot")
-st.markdown("*Your AI assistant for high-stakes outreach.*")
 
-# --- SIDEBAR (API KEY) ---
-# This checks if the key is in Streamlit Secrets (for the live app)
-# or asks you to paste it if running locally.
+# --- API KEY SETUP ---
 if "GOOGLE_API_KEY" in st.secrets:
     api_key = st.secrets["GOOGLE_API_KEY"]
 else:
-    api_key = st.sidebar.text_input("AIzaSyDGY2NAIrd24n_i-yBp0wF9LU7_gVtprAA", type="password")
+    api_key = st.sidebar.text_input("Enter Google API Key", type="password")
 
-# --- THE AI BRAIN (MOVED TO PROMPT FOR STABILITY) ---
+# --- THE SYSTEM INSTRUCTIONS ---
 sys_instruction = """
 You are the elite Sales Assistant for Coach Deng Awak.
-Coach Deng is pivoting to "Executive Mental Performance".
-
-Your Goal: Write short, punchy, high-status messages.
-
-TEMPLATE A (Parents of Elite Kids):
-"Hey [Name], hope the family is well! I’m launching a new Elite Mental Performance program in January focused on 'Clutch Mentality'. I think [Kid's Name] has the talent for it. I’m opening 3 spots for a 'Founding Member' rate. Open to a 5-min chat?"
-
-TEMPLATE B (Executives/CEOs):
-"Hey [Name], hope you're doing well. I’m making a shift in 2026 to bring my pro athlete protocols into the business world—helping leaders manage high-pressure decision-making. I’m looking for 2-3 experienced leaders to beta test the program. No sales pitch, just value. Let me know if you're open to a 10-min coffee."
-
-TEMPLATE C (LinkedIn Post):
-Write a LinkedIn post using the hook "Stop playing like an amateur." Focus on the connection between Sports Pressure and Business Pressure. Tone: Professional, Athletic, Confident.
+Goal: Write short, punchy, high-status messages.
+Templates:
+A (Parents): "Hey [Name], launching Elite Mental Performance program... think [Kid] has talent... 3 spots left... 5-min chat?"
+B (Execs): "Hey [Name], bringing pro athlete protocols to business... avoid burnout... beta testing... 10-min coffee?"
+C (Post): Hook "Stop playing like an amateur." Sports vs Business pressure.
 """
 
+# --- THE "AUTO-DETECT" ENGINE ---
 if api_key:
-    # Configure the API
-    genai.configure(api_key=api_key)
-    
-    # We use a simpler model initialization to avoid errors
-    model = genai.GenerativeModel("gemini-pro")
-
-    # --- THE USER INTERFACE ---
-    with st.form("message_form"):
-        st.write("### 🎯 Who are we messaging?")
+    try:
+        genai.configure(api_key=api_key)
         
-        # Input Note
-        user_notes = st.text_area(
-            "Paste rough notes here:", 
-            placeholder="e.g. Peter, CEO of Maersk, met at gala. Wants to improve focus.",
-            height=100
-        )
+        # 1. Try to find the best available model automatically
+        model_name = "gemini-1.5-flash" # Default target
         
-        # Buttons to select type
-        msg_type = st.radio(
-            "Select Output Type:",
-            ["Template A (Parent)", "Template B (Executive)", "Template C (LinkedIn Post)"],
-            horizontal=True
-        )
-        
-        submitted = st.form_submit_button("🚀 Generate Message")
-
-    # --- OUTPUT ---
-    if submitted and user_notes:
-        with st.spinner("Drafting the perfect message..."):
-            # Combine the brain instructions with the user request (Fail-safe method)
-            full_prompt = f"{sys_instruction}\n\nTASK: Using {msg_type}, write a message based on these notes: {user_notes}"
+        try:
+            # Ask Google what models this key can see
+            available_models = [m.name for m in genai.list_models()]
             
-            try:
-                response = model.generate_content(full_prompt)
-                st.success("Draft Ready:")
-                st.text_area("Copy this:", value=response.text, height=250)
-            except Exception as e:
-                st.error(f"Error: {e}")
-            
-    elif submitted and not user_notes:
-        st.warning("Please enter some notes first.")
+            # Logic to pick the best working model
+            if "models/gemini-1.5-flash" in available_models:
+                model_name = "gemini-1.5-flash"
+            elif "models/gemini-pro" in available_models:
+                model_name = "gemini-pro"
+            elif "models/gemini-1.0-pro" in available_models:
+                model_name = "gemini-1.0-pro"
+                
+        except Exception:
+            # If listing fails, just force the standard one
+            model_name = "gemini-pro"
 
+        # 2. Load the model
+        model = genai.GenerativeModel(model_name)
+
+        # --- USER INTERFACE ---
+        with st.form("msg_form"):
+            st.write(f"✅ Connected using model: `{model_name}`")
+            user_notes = st.text_area("Paste notes here:", height=100)
+            msg_type = st.radio("Type:", ["Template A (Parent)", "Template B (Exec)", "Template C (Post)"])
+            submitted = st.form_submit_button("Generate")
+
+        if submitted and user_notes:
+            prompt = f"{sys_instruction}\n\nREQ: Use {msg_type} for: {user_notes}"
+            response = model.generate_content(prompt)
+            st.success("Draft:")
+            st.text_area("Copy:", value=response.text, height=250)
+
+    except Exception as e:
+        st.error(f"Connection Error: {e}")
+        st.info("💡 Tip: Ensure your API Key is from 'aistudio.google.com' and not Google Cloud Console.")
 else:
-    st.warning("⚠️ Please enter your API Key in the sidebar to start.")
+    st.warning("Enter API Key to start.")
