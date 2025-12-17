@@ -14,7 +14,7 @@ if MANUAL_API_KEY:
 elif "GOOGLE_API_KEY" in st.secrets:
     api_key = st.secrets["GOOGLE_API_KEY"]
 else:
-    api_key = st.sidebar.text_input("Enter Google API Key", type="password")
+    api_key = st.sidebar.text_input("AIzaSyDGY2NAIrd24n_i-yBp0wF9LU7_gVtprAA", type="password")
 
 # --- MODEL SETUP (Universal Adapter v2) ---
 model = None
