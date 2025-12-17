@@ -1,10 +1,9 @@
 import streamlit as st
 import google.generativeai as genai
-import os
+import pandas as pd
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Coach Deng Bot", page_icon="🏀")
-st.title("🏀 Corporate Athlete Sales Bot")
+st.set_page_config(page_title="Coach Deng Command Center", page_icon="🏀", layout="wide")
 
 # --- API KEY SETUP ---
 if "GOOGLE_API_KEY" in st.secrets:
@@ -12,62 +11,110 @@ if "GOOGLE_API_KEY" in st.secrets:
 else:
     api_key = st.sidebar.text_input("Enter Google API Key", type="password")
 
-# --- THE SYSTEM INSTRUCTIONS ---
-sys_instruction = """
-You are the elite Sales Assistant for Coach Deng Awak.
-Goal: Write short, punchy, high-status messages.
-Templates:
-A (Parents): "Hey [Name], launching Elite Mental Performance program... think [Kid] has talent... 3 spots left... 5-min chat?"
-B (Execs): "Hey [Name], bringing pro athlete protocols to business... avoid burnout... beta testing... 10-min coffee?"
-C (Post): Hook "Stop playing like an amateur." Sports vs Business pressure.
-"""
-
+# --- MODEL SETUP (Universal Adapter) ---
+model = None
 if api_key:
     try:
         genai.configure(api_key=api_key)
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         
-        # --- THE UNIVERSAL ADAPTER (Fixes 404 Errors) ---
-        # 1. Ask Google what models are actually available for this Key
-        available_models = []
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                available_models.append(m.name)
+        # Pick best model
+        if "models/gemini-1.5-flash" in available_models: model_name = "models/gemini-1.5-flash"
+        elif "models/gemini-pro" in available_models: model_name = "models/gemini-pro"
+        else: model_name = available_models[0]
         
-        # 2. Smart Selection Logic
-        if not available_models:
-            st.error("❌ No models found. Your API Key might be valid but has no access to Generative AI.")
-            st.info("Please create a new key at: https://aistudio.google.com/")
-            st.stop()
-            
-        # Priority list: Try Flash first (fastest), then Pro, then whatever is first in the list
-        if "models/gemini-1.5-flash" in available_models:
-            model_name = "models/gemini-1.5-flash"
-        elif "models/gemini-pro" in available_models:
-            model_name = "models/gemini-pro"
-        elif "models/gemini-1.0-pro" in available_models:
-             model_name = "models/gemini-1.0-pro"
-        else:
-            model_name = available_models[0] # Fallback: Just take the first one that works
-
-        # 3. Load the winner
         model = genai.GenerativeModel(model_name)
-
-        # --- USER INTERFACE ---
-        with st.form("msg_form"):
-            st.caption(f"✅ Connected to: {model_name}")
-            user_notes = st.text_area("Paste notes here:", height=100)
-            msg_type = st.radio("Type:", ["Template A (Parent)", "Template B (Exec)", "Template C (Post)"])
-            submitted = st.form_submit_button("Generate")
-
-        if submitted and user_notes:
-            # Combine Prompt
-            full_prompt = f"{sys_instruction}\n\nTASK: Use {msg_type} for: {user_notes}"
-            response = model.generate_content(full_prompt)
-            st.success("Draft:")
-            st.text_area("Copy:", value=response.text, height=250)
-
     except Exception as e:
-        st.error(f"Error: {e}")
-        st.info("If this persists, verify your Key is from Google AI Studio (aistudio.google.com).")
-else:
-    st.warning("Enter API Key to start.")
+        st.sidebar.error(f"API Error: {e}")
+
+# --- SIDEBAR NAVIGATION ---
+st.sidebar.title("🏀 Command Center")
+app_mode = st.sidebar.radio("Select Tool:", ["📝 Sales Agent", "🧠 Curriculum Builder", "💰 Revenue Calc"])
+
+# ==========================================
+# TOOL 1: SALES AGENT (The Outreach Bot)
+# ==========================================
+if app_mode == "📝 Sales Agent":
+    st.title("📝 Outreach Specialist")
+    st.caption("Draft high-status messages in seconds.")
+    
+    sys_instruction = """
+    Role: Elite Sales Assistant for Coach Deng.
+    Tone: Professional, Athletic, Confident.
+    Templates:
+    A (Parents): "Hey [Name], launching Elite Mental Performance program... 3 spots left... 5-min chat?"
+    B (Execs): "Hey [Name], bringing pro athlete protocols to business... avoid burnout... 10-min coffee?"
+    C (Post): Hook "Stop playing like an amateur." Sports vs Business pressure.
+    """
+    
+    with st.form("msg_form"):
+        user_notes = st.text_area("Prospect Notes:", height=100)
+        msg_type = st.radio("Type:", ["Template A (Parent)", "Template B (Exec)", "Template C (Post)"])
+        submitted = st.form_submit_button("Generate Draft")
+    
+    if submitted and user_notes and model:
+        prompt = f"{sys_instruction}\n\nTASK: Use {msg_type} for: {user_notes}"
+        response = model.generate_content(prompt)
+        st.success("Ready to Send:")
+        st.text_area("Copy:", value=response.text, height=200)
+
+# ==========================================
+# TOOL 2: CURRICULUM BUILDER (The Organizer)
+# ==========================================
+elif app_mode == "🧠 Curriculum Builder":
+    st.title("🧠 Curriculum Architect")
+    st.caption("Plan your sessions so you never show up unprepared.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        client_type = st.selectbox("Client Type", ["Executive (Burnout/Focus)", "Elite Athlete (Clutch/Confidence)", "Youth (Discipline)"])
+    with col2:
+        session_week = st.selectbox("Session Week", ["Week 1 (Foundation)", "Week 2 (Pressure)", "Week 3 (Recovery)", "Week 4 (Execution)"])
+        
+    if st.button("Design Session Plan") and model:
+        prompt = f"""
+        Act as a World-Class Performance Coach.
+        Create a 60-minute session plan for: {client_type}, {session_week}.
+        
+        Format:
+        1. The Big Idea (The "Why")
+        2. The Warm-up (Mental or Physical)
+        3. The Core Concept (What are we teaching?)
+        4. The Drill/Exercise (Practical application)
+        5. The Homework (One actionable takeaway)
+        """
+        response = model.generate_content(prompt)
+        st.markdown(response.text)
+
+# ==========================================
+# TOOL 3: REVENUE CALCULATOR (The Math)
+# ==========================================
+elif app_mode == "💰 Revenue Calc":
+    st.title("💰 2026 Goal Tracker")
+    st.caption("Live math on your startup capital.")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        youth_clients = st.number_input("Youth Clients", value=0)
+        youth_rate = st.number_input("Youth Rate", value=2200)
+    with col2:
+        elite_clients = st.number_input("Elite Clients", value=0)
+        elite_rate = st.number_input("Elite Rate", value=3400)
+    with col3:
+        exec_clients = st.number_input("Exec Clients", value=0)
+        exec_rate = st.number_input("Exec Rate", value=6500)
+        
+    monthly_rev = (youth_clients * youth_rate) + (elite_clients * elite_rate) + (exec_clients * exec_rate)
+    
+    st.divider()
+    st.metric(label="Total Monthly Revenue", value=f"{monthly_rev:,} DKK")
+    
+    if monthly_rev > 0:
+        months_to_startup = 25000 / monthly_rev
+        months_to_100k = 100000 / monthly_rev
+        
+        c1, c2 = st.columns(2)
+        c1.info(f"**Time to Startup (25k):** {months_to_startup:.1f} Months")
+        c2.success(f"**Time to 100k:** {months_to_100k:.1f} Months")
+    else:
+        st.warning("Enter clients to see timeline.")
