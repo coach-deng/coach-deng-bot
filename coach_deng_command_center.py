@@ -76,7 +76,10 @@ if app_mode == "📝 Sales Agent":
                     st.success("Ready to Send:")
                     st.text_area("Copy:", value=response.text, height=200)
             except Exception as e:
-                st.error(f"Error generating message: {e}")
+                if "429" in str(e):
+                    st.warning("🚦 Speed Limit Hit: You are clicking too fast for the free Google account. Please wait 60 seconds and try again.")
+                else:
+                    st.error(f"Error generating message: {e}")
         else:
             st.warning("Please check API Key.")
 
@@ -111,7 +114,10 @@ elif app_mode == "🧠 Curriculum Builder":
                     response = model.generate_content(prompt)
                     st.markdown(response.text)
             except Exception as e:
-                st.error(f"Error generating plan: {e}")
+                if "429" in str(e):
+                    st.warning("🚦 Speed Limit Hit: You are clicking too fast for the free Google account. Please wait 60 seconds and try again.")
+                else:
+                    st.error(f"Error generating plan: {e}")
         else:
             st.warning("Please check API Key.")
 
