@@ -23,32 +23,51 @@ C (Post): Hook "Stop playing like an amateur." Sports vs Business pressure.
 """
 
 if api_key:
-    # Configure the API
-    genai.configure(api_key=api_key)
-    
-    # --- USE THE CLASSIC MODEL (Stable) ---
-    # We use 'gemini-pro' because it works on all software versions
-    model = genai.GenerativeModel("gemini-pro")
+    try:
+        genai.configure(api_key=api_key)
+        
+        # --- THE UNIVERSAL ADAPTER (Fixes 404 Errors) ---
+        # 1. Ask Google what models are actually available for this Key
+        available_models = []
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                available_models.append(m.name)
+        
+        # 2. Smart Selection Logic
+        if not available_models:
+            st.error("❌ No models found. Your API Key might be valid but has no access to Generative AI.")
+            st.info("Please create a new key at: https://aistudio.google.com/")
+            st.stop()
+            
+        # Priority list: Try Flash first (fastest), then Pro, then whatever is first in the list
+        if "models/gemini-1.5-flash" in available_models:
+            model_name = "models/gemini-1.5-flash"
+        elif "models/gemini-pro" in available_models:
+            model_name = "models/gemini-pro"
+        elif "models/gemini-1.0-pro" in available_models:
+             model_name = "models/gemini-1.0-pro"
+        else:
+            model_name = available_models[0] # Fallback: Just take the first one that works
 
-    # --- USER INTERFACE ---
-    with st.form("msg_form"):
-        st.write("✅ System Ready (Classic Mode)")
-        user_notes = st.text_area("Paste notes here:", height=100)
-        msg_type = st.radio("Type:", ["Template A (Parent)", "Template B (Exec)", "Template C (Post)"])
-        submitted = st.form_submit_button("Generate")
+        # 3. Load the winner
+        model = genai.GenerativeModel(model_name)
 
-    if submitted and user_notes:
-        try:
-            # Classic model needs the prompt combined manually
+        # --- USER INTERFACE ---
+        with st.form("msg_form"):
+            st.caption(f"✅ Connected to: {model_name}")
+            user_notes = st.text_area("Paste notes here:", height=100)
+            msg_type = st.radio("Type:", ["Template A (Parent)", "Template B (Exec)", "Template C (Post)"])
+            submitted = st.form_submit_button("Generate")
+
+        if submitted and user_notes:
+            # Combine Prompt
             full_prompt = f"{sys_instruction}\n\nTASK: Use {msg_type} for: {user_notes}"
             response = model.generate_content(full_prompt)
-            
             st.success("Draft:")
             st.text_area("Copy:", value=response.text, height=250)
-            
-        except Exception as e:
-            st.error(f"Error: {e}")
-            st.info("If this fails, your API Key might be invalid or from Google Cloud instead of AI Studio.")
 
+    except Exception as e:
+        st.error(f"Error: {e}")
+        st.info("If this persists, verify your Key is from Google AI Studio (aistudio.google.com).")
 else:
     st.warning("Enter API Key to start.")
